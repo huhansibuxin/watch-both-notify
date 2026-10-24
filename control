@@ -1,6 +1,6 @@
 Package: com.huhansibuxin.watchbothnotify
 Name: WatchBothNotify
-Version: 0.0.1
+Version: 0.0.2
 Architecture: iphoneos-arm64
 Description: 探针版（使命完成即删）：验证 iOS16 bulletindistributod 内 BLTBulletinDistributor 手表通知去重 hook 点。安装后自动重启 daemon，日志落 /var/mobile/Library/Logs/WatchBothNotify.log（SSH 读加 /rootfs/private 前缀）。
 Maintainer: huhansibuxin
