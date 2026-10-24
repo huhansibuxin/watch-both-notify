@@ -1,8 +1,8 @@
 Package: com.huhansibuxin.watchbothnotify
 Name: WatchBothNotify
-Version: 1.0.0
+Version: 1.0.1
 Architecture: iphoneos-arm64
-Description: iPhone+Apple Watch 通知双响（注入 bulletindistributord，hook BLTBulletinDistributor 去重判断，iOS16 探针实锤签名）。常开无设置。
+Description: 链路细分计数过渡版（使命完成即删）：分清 iOS16 实际调用 8 参老签名还是 6 参精简签名。行为与 1.0.0 一致。
 Maintainer: huhansibuxin
 Author: huhansibuxin
 Section: Tweaks
