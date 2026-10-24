@@ -1,35 +1,34 @@
-// WatchBothNotify v1.0.1 链路细分计数版（过渡探针，使命完成即删）
-// 目的：分清 iOS16 实际调用的是变体 A（WinterMode 原版 8 参）还是变体 B（iOS15+ 精简 6 参）
-//   —— 1.0.0 的合并计数分不出，本版两条各自首次命中写各自标记：
-//   /tmp/wbn_hitA.log 出现 = 系统走 8 参老签名
-//   /tmp/wbn_hitB.log 出现 = 系统走 6 参精简签名
-//   （两个都没出现 = 两条都没被调，需要重挖；都出现 = 两条都走，正式版都得留）
-// 行为与 1.0.0 完全一致（双变体都强改 NO，双响不中断），只多两个首次命中标记。
-// daemon 视角 /tmp = /private/var/tmp；SSH 读加 /rootfs/private 前缀。
+// WatchBothNotify v1.1.0 正式版（终版）
+//
+// 功能：戴表时让通知在 Apple Watch 和 iPhone 上同时响（双响）。
+//
+// 机制（iOS16 实锤）：
+//   iOS 的通知去重发生在 bulletindistributord（BLTBulletinDistributor）。
+//   手表响铃后会经
+//     _handleDidPlayLightsAndSirens:forBulletin:inPhoneSection:transmissionDate:
+//     receptionDate:fromGizmo:finalReply:replyToken:
+//   向 distributor 回报 didPlay=YES，distributor 据此认为"手表已响"，
+//   于是不让手机再响。把 didPlay 强改 NO → 系统认为手表没响 → 手机也响。
+//   手表侧送达是独立的 APNs+IDS 链，不受本 hook 影响。
+//
+// 链路实锤（v1.0.1 细分探针，iOS16 实机）：
+//   - 8 参老签名（WinterMode 原版）：被实际调用（/tmp/wbn_hitA.log 命中）。
+//   - iOS15+ 6 参精简签名：类里存在但从未被调用（/tmp/wbn_hitB.log 零命中）。
+//   → 正式版只保留 8 参这一条，冗余变体已删。
+//
+// 零日志、零探针、无设置、无定时器：hook 只在系统回调时触发。
+//
+// 性能特性（不卡主线程、不耗 CPU）：
+//   - 事件驱动：只在系统回调本方法时触发（每条通知至多一次），无轮询无定时器。
+//   - 回调内只做一次寄存器赋值（didPlay = NO），无 IO、无锁、无堆分配、无额外 ObjC 消息。
+//   - %orig 即系统原本要执行的调用，hook 本身不增加任何消息发送。
+//   - 注入范围仅 bulletindistributord 单进程（Filter plist 限定），其他进程零成本。
 
 #import <Foundation/Foundation.h>
-#import <objc/runtime.h>
-#import <objc/message.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <string.h>
-#include <stdatomic.h>
-#include <time.h>
-
-// 首次命中即写（覆写带 pid+时间戳，不随调用涨）
-static void wbnMark(const char *path) {
-    char buf[128];
-    snprintf(buf, sizeof(buf), "hit at %ld pid=%d\n", (long)time(NULL), getpid());
-    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fd >= 0) { (void)write(fd, buf, strlen(buf)); close(fd); }
-}
-
-static atomic_bool wbnAHit = false;
-static atomic_bool wbnBHit = false;
 
 %hook BLTBulletinDistributor
 
-// 变体 A：WinterMode 原版（iOS 13/14 签名，iOS16 探针实锤存活 args=10）
+// iOS16 实际命中的唯一链路：手表响铃后的 didPlay 回报
 - (void)_handleDidPlayLightsAndSirens:(BOOL)didPlay
                            forBulletin:(id)bulletin
                         inPhoneSection:(id)phoneSection
@@ -38,19 +37,7 @@ static atomic_bool wbnBHit = false;
                              fromGizmo:(BOOL)fromGizmo
                             finalReply:(BOOL)finalReply
                             replyToken:(id)replyToken {
-    if (!atomic_exchange(&wbnAHit, true)) wbnMark("/tmp/wbn_hitA.log");
-    didPlay = NO;
-    %orig;
-}
-
-// 变体 B：iOS 15+ 精简版（iOS16 探针实锤共存，args=7）
-- (void)_handleDidPlayLightsAndSirens:(BOOL)didPlay
-                           forBulletin:(id)bulletin
-                        inPhoneSection:(id)phoneSection
-                            finalReply:(BOOL)finalReply
-                            replyToken:(id)replyToken {
-    if (!atomic_exchange(&wbnBHit, true)) wbnMark("/tmp/wbn_hitB.log");
-    didPlay = NO;
+    didPlay = NO;   // 强制"手表未响" → 手机同时响，实现双响
     %orig;
 }
 

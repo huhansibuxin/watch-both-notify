@@ -1,4 +1,9 @@
 #!/bin/sh
 # 装完立刻重启 bulletindistributord —— launchd 会自动拉起，新 dylib 生效
 killall -9 bulletindistributord 2>/dev/null
+# 清理探针版本遗留的诊断文件（正式版不再产生任何日志）
+rm -f /private/var/tmp/wbn_hitA.log /private/var/tmp/wbn_hitB.log \
+      /private/var/tmp/wbn_hits.log /private/var/tmp/wbn_probe_entered \
+      /private/var/tmp/WatchBothNotify.log \
+      /private/var/mobile/Library/Logs/WatchBothNotify.log
 exit 0
