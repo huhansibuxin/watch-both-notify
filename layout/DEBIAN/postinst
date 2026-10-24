@@ -1,0 +1,4 @@
+#!/bin/sh
+# 装完立刻重启 bulletindistributord —— launchd 会自动拉起，新 dylib 生效
+killall -9 bulletindistributord 2>/dev/null
+exit 0
